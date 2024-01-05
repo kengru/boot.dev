@@ -1,5 +1,6 @@
 from window import Window
 from models import Maze
+import sys
 
 def main():
   rows = 12
@@ -10,9 +11,16 @@ def main():
   cell_size_x = (screen_x - 2 * margin) / rows
   cell_size_y = (screen_y - 2 * margin) / cols
 
+  sys.setrecursionlimit(10000)
   win = Window(screen_x, screen_y)
+
   mz = Maze(margin, margin, rows, cols, cell_size_x, cell_size_y, win, 11)
-  mz.solve()
+  is_solvable = mz.solve()
+
+  if not is_solvable:
+    print("No solution found")
+  else:
+    print("Solution found!")
 
   win.wait_for_close()
 

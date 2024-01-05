@@ -14,9 +14,9 @@ class Line():
     self.p1 = p1
     self.p2 = p2
   
-  def draw(self, canvas, fill = "red"):
+  def draw(self, canvas, fill="black"):
     canvas.create_line(
-      self.p1.x, self.p1.y, self.p2.x, self.p2.y, fill=fill, width=4
+      self.p1.x, self.p1.y, self.p2.x, self.p2.y, fill=fill, width=3
     )
     canvas.pack(fill=BOTH, expand=1)
 
@@ -35,13 +35,13 @@ class Cell():
     self._win = window
   
   def draw(self, x1, y1, x2, y2):
+    if not self._win:
+      return
+
     self._x1 = x1
     self._x2 = x2
     self._y1 = y1
-    self._y2 = y2
-    
-    if not self._win:
-      return
+    self._y2 = y2    
 
     color1 = "red" if self.has_top_wall else "white"
     line = Line(Point(x1, y1), Point(x2, y1))
@@ -60,12 +60,37 @@ class Cell():
     self._win.draw_line(line, color4)
   
   def draw_move(self, to_cell, undo=False):
+    if self._win is None:
+      return
+
     from utils import get_middle_point
     fill = "gray" if undo else "red"
     p1 = get_middle_point(self._x1, self._x2, self._y1, self._y2)
     p2 = get_middle_point(to_cell._x1, to_cell._x2, to_cell._y1, to_cell._y2)
-    l = Line(p1, p2)
-    self._win.draw_line(l, fill)
+
+    if self._x1 > to_cell._x1:
+      line = Line(Point(self._x1, p1.y), Point(p1.x, p1.y))
+      self._win.draw_line(line, fill)
+      line = Line(Point(p2.x, p2.y), Point(to_cell._x2, p2.y))
+      self._win.draw_line(line, fill)
+
+    elif self._x1 < to_cell._x1:
+      line = Line(Point(p1.x, p1.y), Point(self._x2, p1.y))
+      self._win.draw_line(line, fill)
+      line = Line(Point(to_cell._x1, p2.y), Point(p2.x, p2.y))
+      self._win.draw_line(line, fill)
+
+    elif self._y1 > to_cell._y1:
+      line = Line(Point(p1.x, p1.y), Point(p1.x, self._y1))
+      self._win.draw_line(line, fill)
+      line = Line(Point(p2.x, to_cell._y2), Point(p2.x, p2.y))
+      self._win.draw_line(line, fill)
+
+    elif self._y1 < to_cell._y1:
+      line = Line(Point(p1.x, p1.y), Point(p1.x, self._y2))
+      self._win.draw_line(line, fill)
+      line = Line(Point(p2.x, p2.y), Point(p2.x, to_cell._y1))
+      self._win.draw_line(line, fill)
 
 
 class Maze():
@@ -174,37 +199,62 @@ class Maze():
 
 
   def _solve_r(self, i, j):
-    from utils import get_middle_cell
     self._animate()
+
+    # vist the current cell
     self._cells[i][j]._visited = True
-    if i == self._num_cols - 1 and j == self._num_rows:
+
+    # if we are at the end cell, we are done!
+    if i == self._num_cols - 1 and j == self._num_rows - 1:
       return True
-    
-    if i > 0 and self._cells[i - 1][j].has_right_wall and not self._cells[i - 1][j]._visited:
-      move = Line(get_middle_cell(self._cells[i][j]), self._cells[i - 1][j])
-      self._win.draw_line(move, "green")
-      val = self._solve_r(i - 1, j)
-      if val:
-        return val
-      self._win.draw_line(move, "red")
-    if i < self._num_cols - 1 and self._cells[i + 1][j].has_left_wall and not self._cells[i + 1][j]._visited:
-      move = Line(get_middle_cell(self._cells[i][j]), self._cells[i + 1][j])
-      self._win.draw_line(move, "green")
-      val = self._solve_r(i + 1, j)
-      if val:
-        return val
-      self._win.draw_line(move, "red")
-    if j > 0 and self._cells[i][j - 1].has_bottom_wall and not self._cells[i][j - 1]._visited:
-      move = Line(get_middle_cell(self._cells[i][j]), self._cells[i][j - 1])
-      self._win.draw_line(move, "green")
-      val = self._solve_r(i, j - 1)
-      if val:
-        return val
-      self._win.draw_line(move, "red")
-    if j < self._num_rows - 1 and self._cells[i][j + 1].has_top_wall and not self._cells[i][j + 1]._visited:
-      move = Line(get_middle_cell(self._cells[i][j]), self._cells[i][j + 1])
-      self._win.draw_line(move, "green")
-      val = self._solve_r(i, j + 1)
-      if val:
-        return val
-      self._win.draw_line(move, "red")
+
+    # move left if there is no wall and it hasn't been _visited
+    if (
+      i > 0
+      and not self._cells[i][j].has_left_wall
+      and not self._cells[i - 1][j]._visited
+    ):
+      self._cells[i][j].draw_move(self._cells[i - 1][j])
+      if self._solve_r(i - 1, j):
+        return True
+      else:
+        self._cells[i][j].draw_move(self._cells[i - 1][j], True)
+
+    # move right if there is no wall and it hasn't been _visited
+    if (
+      i < self._num_cols - 1
+      and not self._cells[i][j].has_right_wall
+      and not self._cells[i + 1][j]._visited
+    ):
+      self._cells[i][j].draw_move(self._cells[i + 1][j])
+      if self._solve_r(i + 1, j):
+        return True
+      else:
+        self._cells[i][j].draw_move(self._cells[i + 1][j], True)
+
+    # move up if there is no wall and it hasn't been _visited
+    if (
+      j > 0
+      and not self._cells[i][j].has_top_wall
+      and not self._cells[i][j - 1]._visited
+    ):
+      self._cells[i][j].draw_move(self._cells[i][j - 1])
+      if self._solve_r(i, j - 1):
+        return True
+      else:
+        self._cells[i][j].draw_move(self._cells[i][j - 1], True)
+
+    # move down if there is no wall and it hasn't been _visited
+    if (
+      j < self._num_rows - 1
+      and not self._cells[i][j].has_bottom_wall
+      and not self._cells[i][j + 1]._visited
+    ):
+      self._cells[i][j].draw_move(self._cells[i][j + 1])
+      if self._solve_r(i, j + 1):
+        return True
+      else:
+        self._cells[i][j].draw_move(self._cells[i][j + 1], True)
+
+    # we went the wrong way let the previous cell know by returning False
+    return False
