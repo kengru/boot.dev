@@ -1,0 +1,20 @@
+{
+  "name": "crawler",
+  "author": {
+    "name": "Kendry Grullon",
+    "email": "kengrullon@gmail.com"
+  },
+  "version": "1.0.0",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "node main.js",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "dependencies": {
+    "jsdom": "^23.2.0"
+  }
+}
