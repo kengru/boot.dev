@@ -1,5 +1,5 @@
 const { test, expect } = require('@jest/globals');
-const { normalizeURL, getURLsFromHTML } = require('./crawl');
+const { normalizeURL, getURLsFromHTML, isSameDomain } = require('./crawl');
 
 describe('normalizeURL', () => {
   test('removes hash', () => {
@@ -32,6 +32,7 @@ describe('normalizeURL', () => {
     const normalizedURL = normalizeURL(url);
     expect(normalizedURL).not.toContain('/path/');
     expect(normalizedURL).toContain('/path');
+    expect(normalizedURL).toEqual('example.com/path');
   });
 });
 
@@ -63,5 +64,13 @@ describe('getURLsFromHTML', () => {
   test("returns absolute URLs if href is relative", () => {
     const urls = getURLsFromHTML(testHTML, 'https://example.com');
     expect(urls[1]).toBe('https://example.com/help');
+  });
+});
+
+describe('isSameDomain', () => {
+  test('returns true for same domain', () => {
+    const url1 = 'https://example.com';
+    const url2 = 'https://example.com/about';
+    expect(isSameDomain(url1, url2)).toBe(true);
   });
 });

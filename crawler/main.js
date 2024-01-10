@@ -1,5 +1,6 @@
 const { argv } = require("node:process");
 const { crawlPage } = require("./crawl");
+const { printReport } = require("./report");
 
 function main() {
   if (argv.length < 3) {
@@ -11,7 +12,9 @@ function main() {
     return;
   }
   const url = argv[2];
-  crawlPage(url);
+  crawlPage(url, url, {}).then(pages => {
+    printReport(pages);
+  });
 }
 
 main();

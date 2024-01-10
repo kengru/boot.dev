@@ -8,7 +8,7 @@ function normalizeURL(url) {
   urlObj.host = '';
   let res = urlObj.toString();
   if (res.endsWith('/')) res = res.slice(0, -1);
-  res = res.replace("https://", '')
+  res = res.replace("https://", '');
   res = res.replace("http://", '')
   return res;
 }
@@ -20,29 +20,48 @@ function getURLsFromHTML(html, baseURL) {
   return urls;
 }
 
-async function crawlPage(url) {
-  console.log(`Crawling ${url}...`);
+function isSameDomain(url1, url2) {
+  const url1Obj = new URL(url1);
+  const url2Obj = new URL(url2);
+  return url1Obj.hostname === url2Obj.hostname;
+}
+
+async function crawlPage(baseURL, currentURL, pages) {
+  if (!isSameDomain(baseURL, currentURL)) {
+    return pages;
+  }
+  const normalized = normalizeURL(currentURL);
+  console.log(`Crawling ${normalized}...`);
+  if (normalized in pages) {
+    pages[normalized] += 1;
+    return pages;
+  }
+  pages[normalized] = baseURL !== currentURL ? 1 : 0;
   try {
-    const response = await fetch(url);
+    const response = await fetch(currentURL);
     if (response.status >= 400) {
-      console.error(`Received status code ${response.status} for ${url}`);
-      return;
+      return pages;
     }
     if (!response.headers.get("Content-Type").includes("text/html")) {
-      console.error(`Expected HTML for ${url} but received ${response.headers.get("Content-Type")}`);
-      return;
+      return pages;
     }
     const html = await response.text();
-    console.log(html);
+    const urls = getURLsFromHTML(html, baseURL);
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      pages = await crawlPage(baseURL, url, pages);
+    }
   } catch (error) {
-    console.error(`Error fetching ${url}: ${error}`);
+    console.error(`Error fetching ${baseURL}: ${error}`);
     return;
   }
-
+  console.log(pages)
+  return pages;
 }
 
 module.exports = {
   normalizeURL,
   getURLsFromHTML,
+  isSameDomain,
   crawlPage
 }
