@@ -1,22 +1,18 @@
-function drawTriangle(ctx) {
-  ctx.beginPath();
-  ctx.moveTo(75, 50);
-  ctx.lineTo(100, 75);
-  ctx.lineTo(100, 25);
-  ctx.fill();
+function drawLetter(ctx, x, y, letter) {
+  ctx.font = '48px serif';
+  ctx.fillText(letter, x, y);
 }
 
 function draw() {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
 
-  ctx.fillStyle = 'rgb(200, 0, 0)';
-  ctx.fillRect(10, 10, 50, 50);
-
-  ctx.fillStyle = 'rgba(0, 0, 200, 0.5)';
-  ctx.fillRect(30, 30, 50, 50);
-
-  drawTriangle(ctx);
+  for (let i = 0; i < 12; i++) {
+    for (let j = 0; j < 10; j++) {
+      ctx.fillStyle = `rgb(${Math.floor(255 - 42.5 * i)}, ${Math.floor(255 - 42.5 * j)}, 0)`;
+      ctx.fillRect(25 + j * 50, 25 + i * 50, 50, 50);
+    }
+  }
 }
 
 window.addEventListener('load', draw);
