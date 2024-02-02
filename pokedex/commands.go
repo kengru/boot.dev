@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-
-	"internal/pokeapi"
 )
 
 func commandHelp(_ *config) error {
@@ -21,10 +19,22 @@ func commandMap(conf *config) error {
 	if conf.Next == "" {
 		return errors.New("There are no more results! Use 'mapb' to go back.")
 	}
-	n, p := pokeapi.GetLocationAreas(conf.Next)
+	results, _ := conf.Client.GetLocationAreas(conf.Next)
 
-	conf.Next = n
-	conf.Previous = p
+	for _, r := range results.Results {
+		fmt.Println(r.Name)
+	}
+
+	if results.Previous == nil {
+		conf.Previous = ""
+	} else {
+		conf.Previous = *results.Previous
+	}
+	if results.Next == nil {
+		conf.Next = ""
+	} else {
+		conf.Next = *results.Next
+	}
 
 	return nil
 }
@@ -33,10 +43,22 @@ func commandMapB(conf *config) error {
 	if conf.Previous == "" {
 		return errors.New("There are no previous results! Use 'map' to get some.")
 	}
-	n, p := pokeapi.GetLocationAreas(conf.Previous)
+	results, _ := conf.Client.GetLocationAreas(conf.Previous)
 
-	conf.Next = n
-	conf.Previous = p
+	for _, r := range results.Results {
+		fmt.Println(r.Name)
+	}
+
+	if results.Previous == nil {
+		conf.Previous = ""
+	} else {
+		conf.Previous = *results.Previous
+	}
+	if results.Next == nil {
+		conf.Next = ""
+	} else {
+		conf.Next = *results.Next
+	}
 
 	return nil
 }

@@ -5,11 +5,21 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 )
 
-func GetLocationAreas(url string) (string, string) {
-	res, err := http.Get(url)
+func (client *PokeClient) GetLocationAreas(url string) (PokeResponse[LocationArea], error) {
+	if val, ok := client.cache.Get(url); ok {
+		resp := PokeResponse[LocationArea]{}
+		err := json.Unmarshal(val, &resp)
+		if err != nil {
+			fmt.Println("it was here")
+			fmt.Println(val)
+			log.Fatal(err)
+		}
+		return resp, nil
+	}
+
+	res, err := client.httpClient.Get(url)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,22 +34,13 @@ func GetLocationAreas(url string) (string, string) {
 		log.Fatal(err)
 	}
 
-	results := PokeResponse[LocationArea]{}
-	marshalErr := json.Unmarshal(body, &results)
+	response := PokeResponse[LocationArea]{}
+	marshalErr := json.Unmarshal(body, &response)
 	if marshalErr != nil {
 		log.Fatal(marshalErr)
 	}
 
-	for _, r := range results.Results {
-		fmt.Println(r.Name)
-	}
+	client.cache.Add(url, body)
 
-	if results.Previous == nil {
-		return *results.Next, ""
-	}
-	if results.Next == nil {
-		return "", *results.Previous
-	}
-
-	return *results.Next, *results.Previous
+	return response, nil
 }

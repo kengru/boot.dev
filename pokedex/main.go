@@ -4,9 +4,13 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"time"
+
+	"internal/pokeapi"
 )
 
 type config struct {
+	Client   pokeapi.PokeClient
 	Next     string
 	Previous string
 }
@@ -14,7 +18,9 @@ type config struct {
 func main() {
 	// creating an instance of scanner
 	scnr := bufio.NewScanner(os.Stdin)
+
 	configuration := config{
+		Client:   pokeapi.NewPokeClient(time.Second*5, time.Second*5),
 		Next:     "https://pokeapi.co/api/v2/location-area/",
 		Previous: "",
 	}
@@ -24,6 +30,12 @@ func main() {
 		fmt.Print("pokedex > ")
 		scnr.Scan()
 		words := cleanInput(scnr.Text())
+
+		if len(words) == 0 {
+			fmt.Println("You need to write a command.")
+			fmt.Println("Write 'help' to get a list of commands")
+			continue
+		}
 
 		command := words[0]
 
