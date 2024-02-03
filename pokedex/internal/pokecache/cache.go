@@ -60,7 +60,7 @@ func (ch *Cache) readLoop() {
 			ch.mu.Lock()
 			for k, entry := range ch.entries {
 				diff := t.Sub(entry.createdAt)
-				if diff > 5*time.Second {
+				if diff > ch.interval {
 					delete(ch.entries, k)
 				}
 			}
