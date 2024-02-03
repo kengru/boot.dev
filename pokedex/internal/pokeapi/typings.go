@@ -37,3 +37,27 @@ type PokeArea struct {
 		} `json:"version_details"`
 	} `json:"pokemon_encounters"`
 }
+
+type PokemonStats struct {
+	Abilities []struct {
+		Ability struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		} `json:"ability"`
+		IsHidden bool `json:"is_hidden"`
+		Slot     int  `json:"slot"`
+	} `json:"abilities"`
+	Height int `json:"height"`
+	Stats  []struct {
+		BaseStat int `json:"base_stat"`
+		Effort   int `json:"effort"`
+		Stat     struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		} `json:"stat"`
+	} `json:"stats"`
+	BaseExperience         int    `json:"base_experience"`
+	LocationAreaEncounters string `json:"location_area_encounters"`
+	Name                   string `json:"name"`
+	Order                  int    `json:"order"`
+}

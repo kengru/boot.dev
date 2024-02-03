@@ -84,3 +84,45 @@ func (client *PokeClient) GetLocationArea(location string) (PokeArea, error) {
 
 	return response, nil
 }
+
+func (client *PokeClient) GetPokemon(pokemon string) (PokemonStats, error) {
+	url := "https://pokeapi.co/api/v2/pokemon/" + pokemon
+
+	if val, ok := client.cache.Get(pokemon); ok {
+		resp := PokemonStats{}
+		err := json.Unmarshal(val, &resp)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return resp, nil
+	}
+
+	res, err := client.httpClient.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	res.Body.Close()
+
+	if res.StatusCode == 404 {
+		return PokemonStats{}, errors.New("This pokemon does not exists!")
+	}
+
+	if res.StatusCode > 299 {
+		log.Fatal("Response has a non 2xx status code")
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	response := PokemonStats{}
+	marshalErr := json.Unmarshal(body, &response)
+	if marshalErr != nil {
+		log.Fatal(marshalErr)
+	}
+
+	client.cache.Add(pokemon, body)
+
+	return response, nil
+}

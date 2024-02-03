@@ -11,6 +11,7 @@ import (
 
 type config struct {
 	Client   pokeapi.PokeClient
+	Pokemons map[string]pokeapi.PokemonStats
 	Next     string
 	Previous string
 }
@@ -21,6 +22,7 @@ func main() {
 
 	configuration := config{
 		Client:   pokeapi.NewPokeClient(time.Second*5, time.Second*5),
+		Pokemons: map[string]pokeapi.PokemonStats{},
 		Next:     "https://pokeapi.co/api/v2/location-area/",
 		Previous: "",
 	}
