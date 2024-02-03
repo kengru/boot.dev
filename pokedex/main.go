@@ -38,9 +38,14 @@ func main() {
 		}
 
 		command := words[0]
+		parameter := ""
+
+		if len(words) > 1 {
+			parameter = words[1]
+		}
 
 		if cmd, ok := getCommands()[command]; ok {
-			err := cmd.callback(&configuration)
+			err := cmd.callback(&configuration, parameter)
 			if err != nil {
 				fmt.Println(err)
 			}

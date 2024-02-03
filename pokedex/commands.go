@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func commandHelp(_ *config) error {
+func commandHelp(_ *config, _ string) error {
 	fmt.Printf("Welcome to the Pokedex!\n\n")
 	fmt.Printf("Here is a list of commands and what they do:\n\n")
 	for _, v := range getCommands() {
@@ -15,7 +15,7 @@ func commandHelp(_ *config) error {
 	return nil
 }
 
-func commandMap(conf *config) error {
+func commandMap(conf *config, _ string) error {
 	if conf.Next == "" {
 		return errors.New("There are no more results! Use 'mapb' to go back.")
 	}
@@ -39,7 +39,7 @@ func commandMap(conf *config) error {
 	return nil
 }
 
-func commandMapB(conf *config) error {
+func commandMapB(conf *config, _ string) error {
 	if conf.Previous == "" {
 		return errors.New("There are no previous results! Use 'map' to get some.")
 	}
@@ -63,7 +63,26 @@ func commandMapB(conf *config) error {
 	return nil
 }
 
-func commandExit(_ *config) error {
+func commandExplore(conf *config, location string) error {
+	if location == "" {
+		return errors.New("You should write the name of the location to explore!")
+	}
+
+	results, err := conf.Client.GetLocationArea(location)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Exploring %s...\n", location)
+	fmt.Println("Found Pokemon:")
+	for _, val := range results.PokemonEncounters {
+		fmt.Printf("- %s\n", val.Pokemon.Name)
+	}
+
+	return nil
+}
+
+func commandExit(_ *config, _ string) error {
 	os.Exit(0)
 	return nil
 }
