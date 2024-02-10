@@ -10,6 +10,7 @@ import (
 )
 
 type apiConfig struct {
+	id             int
 	fileserverHits int
 }
 
@@ -18,6 +19,12 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 		cfg.fileserverHits += 1
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	cfg.fileserverHits = 0
 }
 
 func (cfg *apiConfig) hitsHandler(w http.ResponseWriter, r *http.Request) {
@@ -29,12 +36,6 @@ func (cfg *apiConfig) hitsHandler(w http.ResponseWriter, r *http.Request) {
 			<p>Chirpy has been visited %d times!</p>
 	</body>
 	</html>`, cfg.fileserverHits))
-}
-
-func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	cfg.fileserverHits = 0
 }
 
 func middlewareCors(next http.Handler) http.Handler {
@@ -56,64 +57,45 @@ func healthz(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "OK")
 }
 
-func validateChirp(w http.ResponseWriter, r *http.Request) {
-	type parameters struct {
-		// these tags indicate how the keys in the JSON should be mapped to the struct fields
-		// the struct fields must be exported (start with a capital letter) if you want them parsed
+func getChirps(w http.ResponseWriter, r *http.Request) {
+	type resBody struct {
+		ID   int    `json:"id"`
 		Body string `json:"body"`
-	}
-	type errBody struct {
-		Error string `json:"error"`
-	}
-	type okBody struct {
-		CleanedBody string `json:"cleaned_body"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
-	params := parameters{}
-	err := decoder.Decode(&params)
+	request := reqBody{}
+	err := decoder.Decode(&request)
 	if err != nil {
-		// an error will be thrown if the JSON is invalid or has the wrong types
-		// any missing fields will simply have their values in the struct set to their zero value
-		respBody := errBody{
-			Error: "Something went wrong",
-		}
-		dat, err := json.Marshal(respBody)
-		if err != nil {
-			w.WriteHeader(500)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(dat)
-		w.WriteHeader(500)
+		RespondWithError(w, 500, "Something went wrong")
+	}
+	if len(request.Body) > 140 {
+		RespondWithError(w, 400, "Chirp is too long")
 		return
 	}
-	if len(params.Body) > 140 {
-		respBody := errBody{
-			Error: "Chirp is too long",
-		}
-		dat, err := json.Marshal(respBody)
-		if err != nil {
-			w.WriteHeader(500)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(400)
-		w.Write(dat)
-		return
+	RespondWithJSON(w, 200, resBody{Body: request.Body})
+}
+
+func postChirps(w http.ResponseWriter, r *http.Request) {
+	type reqBody struct {
+		Body string `json:"body"`
+	}
+	type resBody struct {
+		ID   int    `json:"id"`
+		Body string `json:"body"`
 	}
 
-	respBody := okBody{
-		CleanedBody: StripProfanity(params.Body),
-	}
-	dat, err := json.Marshal(respBody)
+	decoder := json.NewDecoder(r.Body)
+	request := reqBody{}
+	err := decoder.Decode(&request)
 	if err != nil {
-		w.WriteHeader(500)
+		RespondWithError(w, 500, "Something went wrong")
+	}
+	if len(request.Body) > 140 {
+		RespondWithError(w, 400, "Chirp is too long")
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	w.Write(dat)
+	RespondWithJSON(w, 200, resBody{Body: request.Body})
 }
 
 func main() {
@@ -123,19 +105,23 @@ func main() {
 	api := chi.NewRouter()
 	admin := chi.NewRouter()
 
-	handler := http.StripPrefix("/app", http.FileServer(http.Dir(".")))
-	r.Handle("/app/*", config.middlewareMetricsInc(handler))
-	r.Handle("/app", config.middlewareMetricsInc(handler))
+	fsHandler := http.StripPrefix("/app", http.FileServer(http.Dir(".")))
+	r.Handle("/app/*", config.middlewareMetricsInc(fsHandler))
+	r.Handle("/app", config.middlewareMetricsInc(fsHandler))
 
 	api.Get("/healthz", healthz)
 	api.HandleFunc("/reset", config.resetHandler)
-	api.Post("/validate_chirp", validateChirp)
+
+	// Chirps CRUD
+	api.Get("/chirps", getChirps)
+	api.Post("/chirps", postChirps)
 
 	admin.Get("/metrics", config.hitsHandler)
 
 	r.Mount("/api", api)
 	r.Mount("/admin", admin)
 
+	// Adding cors middleware so that requests from boot.dev can work.
 	corsMux := middlewareCors(r)
 
 	server := http.Server{
