@@ -5,8 +5,10 @@ import (
 	"internal/database"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/joho/godotenv"
 )
 
 func middlewareCors(next http.Handler) http.Handler {
@@ -29,11 +31,15 @@ func healthz(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	godotenv.Load()
+	jwtSecret := os.Getenv("JWT_SECRET")
+	polkaKey := os.Getenv("POLKA")
+
 	db, err := database.NewDB("database.json")
 	if err != nil {
 		fmt.Println(err)
 	}
-	config := ApiConfig{fileserverHits: 0, db: db}
+	config := ApiConfig{fileserverHits: 0, db: db, secret: jwtSecret, pkey: polkaKey}
 
 	r := chi.NewRouter()
 	api := chi.NewRouter()
@@ -50,9 +56,18 @@ func main() {
 	api.Get("/chirps", config.GetChirps)
 	api.Get("/chirps/{chirpId}", config.GetChirp)
 	api.Post("/chirps", config.PostChirps)
+	api.Delete("/chirps/{chirpId}", config.DeleteChirp)
 
 	// Users CRUD
 	api.Post("/users", config.PostUsers)
+	api.Put("/users", config.PutUsers)
+	api.Post("/login", config.PostLogin)
+
+	// Authentication endpoints
+	api.Post("/refresh", config.PostRefresh)
+	api.Post("/revoke", config.PostRevoke)
+
+	api.Post("/polka/webhooks", config.Polka)
 
 	admin.Get("/metrics", config.HitsHandler)
 

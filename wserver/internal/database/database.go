@@ -5,16 +5,20 @@ import (
 	"errors"
 	"os"
 	"sync"
+	"time"
 )
 
 type Chirp struct {
-	ID   int    `json:"id"`
-	Body string `json:"body"`
+	ID       int    `json:"id"`
+	Body     string `json:"body"`
+	AuthorID int    `json:"author_id"`
 }
 
 type User struct {
-	ID    int    `json:"id"`
-	Email string `json:"email"`
+	ID       int    `json:"id"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	IsRed    bool   `json:"is_chirpy_red"`
 }
 
 type DB struct {
@@ -23,15 +27,17 @@ type DB struct {
 }
 
 type DBStructure struct {
-	Chirps map[int]Chirp `json:"chirps"`
-	Users  map[int]User  `json:"users"`
+	Chirps        map[int]Chirp `json:"chirps"`
+	Users         map[int]User  `json:"users"`
+	RevokedTokens map[string]time.Time
 }
 
 func NewDB(path string) (*DB, error) {
 	mux := &sync.RWMutex{}
 	db := &DBStructure{
-		Chirps: make(map[int]Chirp),
-		Users:  make(map[int]User),
+		Chirps:        make(map[int]Chirp),
+		Users:         make(map[int]User),
+		RevokedTokens: make(map[string]time.Time),
 	}
 
 	f, err := os.Create(path)
@@ -52,15 +58,16 @@ func NewDB(path string) (*DB, error) {
 	}, nil
 }
 
-func (db *DB) CreateChirp(body string) (std Chirp, err error) {
+func (db *DB) CreateChirp(body string, author int) (std Chirp, err error) {
 	curr, err := db.loadDB()
 	if err != nil {
 		return std, err
 	}
 	nextID := len(curr.Chirps) + 1
 	c := Chirp{
-		ID:   nextID,
-		Body: body,
+		ID:       nextID,
+		Body:     body,
+		AuthorID: author,
 	}
 	curr.Chirps[nextID] = c
 
@@ -68,33 +75,101 @@ func (db *DB) CreateChirp(body string) (std Chirp, err error) {
 	return c, nil
 }
 
-func (db *DB) GetChirps() ([]Chirp, error) {
+func (db *DB) GetChirps(id int) ([]Chirp, error) {
 	curr, err := db.loadDB()
 	if err != nil {
 		return nil, err
 	}
 	chirps := []Chirp{}
 	for _, c := range curr.Chirps {
-		chirps = append(chirps, c)
+		if id > 0 {
+			if c.AuthorID == id {
+				chirps = append(chirps, c)
+				continue
+			}
+		} else {
+			chirps = append(chirps, c)
+		}
 	}
 
 	return chirps, nil
 }
 
-func (db *DB) CreateUser(email string) (std User, err error) {
+func (db *DB) DeleteChirp(id int) error {
+	curr, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	delete(curr.Chirps, id)
+
+	db.writeDB(curr)
+	return nil
+}
+
+func (db *DB) CreateUser(email string, hash []byte) (std User, err error) {
 	curr, err := db.loadDB()
 	if err != nil {
 		return std, err
 	}
+	// checking if email exists
+	for _, u2 := range curr.Users {
+		if u2.Email == email {
+			return std, errors.New("duplicated email")
+		}
+	}
+
 	nextID := len(curr.Users) + 1
 	u := User{
-		ID:    nextID,
-		Email: email,
+		ID:       nextID,
+		Email:    email,
+		Password: string(hash),
+		IsRed:    false,
 	}
 	curr.Users[nextID] = u
 
 	db.writeDB(curr)
 	return u, nil
+}
+
+func (db *DB) UpdateUser(id int, email string, hash []byte) (std User, err error) {
+	curr, err := db.loadDB()
+	if err != nil {
+		return std, err
+	}
+
+	// checking if user exists
+	_, ok := curr.Users[id]
+	if !ok {
+		return std, errors.New("the user does not exist")
+	}
+	u := User{
+		ID:       id,
+		Email:    email,
+		Password: string(hash),
+	}
+	curr.Users[id] = u
+
+	db.writeDB(curr)
+	return u, nil
+}
+
+func (db *DB) UpdateUserMembership(id int) error {
+	curr, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	// checking if user exists
+	user, ok := curr.Users[id]
+	if !ok {
+		return errors.New("the user does not exist")
+	}
+	user.IsRed = true
+	curr.Users[id] = user
+
+	db.writeDB(curr)
+	return nil
 }
 
 func (db *DB) GetUsers() ([]User, error) {
@@ -108,6 +183,52 @@ func (db *DB) GetUsers() ([]User, error) {
 	}
 
 	return users, nil
+}
+
+func (db *DB) GetUserByEmail(email string) (us User, err error) {
+	curr, err := db.loadDB()
+	if err != nil {
+		return us, err
+	}
+	for _, u := range curr.Users {
+		if u.Email == email {
+			return u, nil
+		}
+	}
+
+	return us, errors.New("user does not exist")
+}
+
+func (db *DB) IsRevoked(token string) bool {
+	curr, err := db.loadDB()
+	if err != nil {
+		return true
+	}
+
+	if _, ok := curr.RevokedTokens[token]; !ok {
+		return false
+	}
+
+	db.writeDB(curr)
+
+	return true
+}
+
+func (db *DB) RevokeToken(token string) error {
+	curr, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	if _, ok := curr.RevokedTokens[token]; ok {
+		return errors.New("it's already revoked")
+	}
+
+	curr.RevokedTokens[token] = time.Now()
+
+	db.writeDB(curr)
+
+	return nil
 }
 
 func (db *DB) ensureDB() error {
