@@ -2,4 +2,6 @@
 
 Projects created under the guidance of the courses at [book.dev](https://book.dev).
 
-Contributing
+## Contributing
+
+i.e.
